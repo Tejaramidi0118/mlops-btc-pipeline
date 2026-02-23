@@ -5,3 +5,24 @@
 2026-02-21 09:39:42 - INFO - Signals generated
 2026-02-21 09:39:42 - INFO - Metrics: signal_rate=0.4987, rows_processed=10000
 2026-02-21 09:39:42 - INFO - Job completed successfully in 20ms
+2026-02-23 11:59:04 - INFO - Job started
+2026-02-23 11:59:04 - INFO - Config loaded: seed=42, window=5, version=v1
+2026-02-23 11:59:04 - INFO - Data loaded: 10000 rows
+2026-02-23 11:59:04 - INFO - Rolling mean calculated with window=5 (first 4 rows excluded as NaN — insufficient window data)
+2026-02-23 11:59:04 - INFO - Signals generated for 9996 valid rows (4 rows excluded due to insufficient window data)
+2026-02-23 11:59:04 - INFO - Metrics: signal_rate=0.4986, rows_processed=9996
+2026-02-23 11:59:04 - INFO - Job completed successfully in 25ms
+2026-02-23 12:01:22 - INFO - Job started
+2026-02-23 12:01:22 - INFO - Config loaded: seed=42, window=5, version=v1
+2026-02-23 12:01:23 - INFO - Data loaded: 10000 rows
+2026-02-23 12:01:23 - INFO - Rolling mean calculated with window=5 (first 4 rows excluded as NaN — insufficient window data)
+2026-02-23 12:01:23 - INFO - Signals generated for 9996 valid rows (4 rows excluded due to insufficient window data)
+2026-02-23 12:01:23 - INFO - Metrics: signal_rate=0.4991, rows_processed=9996
+2026-02-23 12:01:23 - INFO - Job completed successfully in 239ms
+2026-02-23 17:32:36 - INFO - Job started
+2026-02-23 17:32:36 - INFO - Config loaded: seed=42, window=5, version=v1
+2026-02-23 17:32:36 - INFO - Data loaded: 10000 rows
+2026-02-23 17:32:36 - INFO - Rolling mean calculated with window=5 (first 4 rows excluded as NaN — insufficient window data)
+2026-02-23 17:32:36 - INFO - Signals generated for 9996 valid rows (4 rows excluded due to insufficient window data)
+2026-02-23 17:32:36 - INFO - Metrics: signal_rate=0.4991, rows_processed=9996
+2026-02-23 17:32:36 - INFO - Job completed successfully in 49ms

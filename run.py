@@ -1,3 +1,9 @@
+"""
+MLOps Pipeline - run.py
+Processes cryptocurrency OHLCV data, computes rolling mean signals,
+and emits structured metrics as JSON.
+"""
+
 import argparse
 import json
 import logging
@@ -10,7 +16,9 @@ import pandas as pd
 import yaml
 
 
+# ---------------------------------------------------------------------------
 # Argument parsing
+# ---------------------------------------------------------------------------
 
 def parse_args():
     parser = argparse.ArgumentParser(description="MLOps Mini Pipeline")
@@ -21,7 +29,9 @@ def parse_args():
     return parser.parse_args()
 
 
+# ---------------------------------------------------------------------------
 # Logging setup
+# ---------------------------------------------------------------------------
 
 def setup_logging(log_file: str) -> logging.Logger:
     logger = logging.getLogger("mlops_pipeline")
@@ -43,7 +53,9 @@ def setup_logging(log_file: str) -> logging.Logger:
     return logger
 
 
+# ---------------------------------------------------------------------------
 # Config loading
+# ---------------------------------------------------------------------------
 
 def load_config(config_path: str, logger: logging.Logger) -> dict:
     if not os.path.exists(config_path):
@@ -73,7 +85,9 @@ def load_config(config_path: str, logger: logging.Logger) -> dict:
     return config
 
 
+# ---------------------------------------------------------------------------
 # Data ingestion
+# ---------------------------------------------------------------------------
 
 def load_data(input_path: str, logger: logging.Logger) -> pd.DataFrame:
     if not os.path.exists(input_path):
@@ -83,7 +97,13 @@ def load_data(input_path: str, logger: logging.Logger) -> pd.DataFrame:
         raise PermissionError(f"Input file is not readable: {input_path}")
 
     try:
-        df = pd.read_csv(input_path)
+        # Some CSV files have each row wrapped in quotes e.g. "timestamp,open,...,close"
+        # We strip those quotes and re-parse so columns are correctly identified
+        with open(input_path, "r") as f:
+            content = f.read()
+        lines = [line.strip().strip('"') for line in content.splitlines() if line.strip()]
+        import io
+        df = pd.read_csv(io.StringIO("\n".join(lines)))
     except pd.errors.EmptyDataError:
         raise ValueError("Input CSV file is empty")
     except pd.errors.ParserError as e:
@@ -99,29 +119,49 @@ def load_data(input_path: str, logger: logging.Logger) -> pd.DataFrame:
     return df
 
 
+# ---------------------------------------------------------------------------
 # Processing
+# ---------------------------------------------------------------------------
 
 def compute_rolling_mean(df: pd.DataFrame, window: int, logger: logging.Logger) -> pd.Series:
-    rolling_mean = df["close"].rolling(window=window, min_periods=1).mean()
-    logger.info(f"Rolling mean calculated with window={window}")
+    # min_periods=window means first (window-1) rows will be NaN
+    # because there isn't enough data to fill the window yet.
+    # These NaN rows are intentionally excluded from signal computation.
+    rolling_mean = df["close"].rolling(window=window, min_periods=window).mean()
+    nan_count = rolling_mean.isna().sum()
+    logger.info(f"Rolling mean calculated with window={window} "
+                f"(first {nan_count} rows excluded as NaN — insufficient window data)")
     return rolling_mean
 
 
 def generate_signals(df: pd.DataFrame, rolling_mean: pd.Series, logger: logging.Logger) -> pd.Series:
-    signals = (df["close"] > rolling_mean).astype(int)
-    logger.info("Signals generated")
+    # Only compute signals where rolling mean is available (not NaN)
+    # Rows where rolling_mean is NaN are excluded from signal computation
+    valid_mask = rolling_mean.notna()
+    signals = pd.Series(np.nan, index=df.index)  # initialise all as NaN
+    signals[valid_mask] = (df["close"][valid_mask] > rolling_mean[valid_mask]).astype(int)
+    logger.info(f"Signals generated for {valid_mask.sum()} valid rows "
+                f"({(~valid_mask).sum()} rows excluded due to insufficient window data)")
     return signals
+
+
+# ---------------------------------------------------------------------------
+# Output helpers
+# ---------------------------------------------------------------------------
 
 def write_metrics(output_path: str, payload: dict):
     with open(output_path, "w") as f:
         json.dump(payload, f, indent=2)
+    # Also print to stdout as required by Docker spec
     print(json.dumps(payload, indent=2))
 
 
+# ---------------------------------------------------------------------------
 # Main
+# ---------------------------------------------------------------------------
 
 def main():
-    start_time = time.time()
+    start_time = time.time()  # capture as early as possible for accurate latency
 
     args = parse_args()
 
@@ -150,8 +190,10 @@ def main():
         signals = generate_signals(df, rolling_mean, logger)
 
         # 5. Metrics calculation
-        rows_processed = len(df)
-        signal_rate    = round(float(signals.mean()), 4)
+        # rows_processed = only rows where signal was computed (NaN rows excluded)
+        valid_signals  = signals.dropna()
+        rows_processed = len(valid_signals)
+        signal_rate    = round(float(valid_signals.mean()), 4)
         latency_ms     = int((time.time() - start_time) * 1000)
 
         logger.info(f"Metrics: signal_rate={signal_rate}, rows_processed={rows_processed}")
